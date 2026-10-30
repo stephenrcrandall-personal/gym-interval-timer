@@ -390,7 +390,7 @@ document.addEventListener('keydown', e => {
   if (e.key === ' ') { e.preventDefault(); S.run.togglePause(); drawRun(true); }
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) return;
+  if (document.hidden) { if (S.view === 'run' && S.run) S.run.poke(); return; }
   if (S.view === 'run' && S.run) { cues.resume(); S.run.catchUp(); keepAwake(); drawRun(true); }
 });
 

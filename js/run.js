@@ -8,7 +8,10 @@
 
 import { makeSchedule, shown } from './schedule.js';
 
-const LOOK_AHEAD = 0.35;   // seconds: sounds are scheduled this far ahead on the audio clock
+// Sounds are handed to the audio clock this far ahead. The audio clock keeps exact time even when
+// the browser slows the page's own timers (Chrome does that to a window hidden behind another app,
+// down to once a second, later once a minute), so lining sounds up well ahead means none are missed.
+const lookAhead = () => (typeof document !== 'undefined' && document.hidden) ? 75 : 1.5;
 
 export function createRun(preset, { cues, music, onPhase, onEnd }) {
   const s = makeSchedule(preset);
@@ -63,7 +66,7 @@ export function createRun(preset, { cues, music, onPhase, onEnd }) {
     for (const e of events) {
       if (done.has(e.id) || e.kind === 'music') continue;
       if (e.kind === 'end') continue;
-      if (e.t <= t + LOOK_AHEAD) {
+      if (e.t <= t + lookAhead()) {
         done.add(e.id);
         if (e.t >= t - 0.25) cues.at(perfAt(e.t), e.what);    // a sound more than ¼ s late is skipped
       }
@@ -131,6 +134,8 @@ export function createRun(preset, { cues, music, onPhase, onEnd }) {
       for (const e of events) if (e.kind !== 'music' && e.t < t) done.add(e.id);
       tick();
     },
+    // Lines up the next stretch of sounds at once (when the page is about to be slowed down).
+    poke() { tick(); },
     stop() { clearInterval(loop); loop = null; cues.cancel(); }
   };
 }

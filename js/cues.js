@@ -49,7 +49,14 @@ export function createCues(base = '') {
       if (!ctx) return;
       const buf = what === 'short' ? short : what === 'long' ? long : clips[what];
       if (!buf) return;
-      const when = Math.max(ctx.currentTime, ctx.currentTime + (perfMs - performance.now()) / 1000);
+      // Turn a page-clock moment into an audio-clock moment. getOutputTimestamp pairs the two clocks
+      // exactly (including the speaker's delay), so sounds lined up seconds ahead still land on time.
+      let base = ctx.currentTime, perfBase = performance.now();
+      try {
+        const ts = ctx.getOutputTimestamp && ctx.getOutputTimestamp();
+        if (ts && ts.performanceTime > 0 && Math.abs(ts.performanceTime - perfBase) < 1000) { base = ts.contextTime; perfBase = ts.performanceTime; }
+      } catch (e) {}
+      const when = Math.max(ctx.currentTime, base + (perfMs - perfBase) / 1000);
       const src = ctx.createBufferSource();
       src.buffer = buf; src.connect(ctx.destination);
       src.onended = () => pending.delete(src);

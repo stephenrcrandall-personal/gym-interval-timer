@@ -233,5 +233,19 @@ with sync_playwright() as p:
     check(errs == [], f'no page errors {errs}')
     ctx.close()
 
+    # ---------- 9. Browser slows the page's timers (window behind another app): no cue is dropped ----------
+    SLOW = "(() => { const si = window.setInterval; window.setInterval = (f, ms, ...a) => si(f, Math.max(ms, 1000), ...a); })()"
+    ctx, pg, errs = page_for(b, pre=SLOW)
+    make_preset(pg, 'Slow', '0:20', '0:10', 3, 5)
+    a = start_and_wait(pg)
+    go(pg, a, 96)
+    snd = sorted((round(w * 1000 - a) / 1000, l) for l, w in pg.evaluate('__audio.map(s => [__label(s), s.when])'))
+    clips = [(t, l) for t, l in snd if l in CLIPS]
+    want = [(0.05, 'get-ready'), (5.55, 'work'), (25.55, 'rest'), (35.55, 'work'), (55.55, 'halfway'), (56.45, 'rest'), (65.55, 'last-one'), (85.55, 'rest')]
+    check(len(clips) == len(want) and all(abs(c[0] - w[0]) < 0.003 and c[1] == w[1] for c, w in zip(clips, want)), f'timers slowed to once a second: every voice cue still plays on time {clips}')
+    check(len([1 for t, l in snd if l == 'long']) == 7 and len([1 for t, l in snd if l == 'short']) == 21, 'timers slowed: every beep still plays')
+    check(errs == [], f'no page errors {errs}')
+    ctx.close()
+
     b.close()
     print('ALL PASS' if ok else 'SOME FAILED')
