@@ -13,7 +13,7 @@ A web interval timer for a friend's home gym, run on an iPad (or an iPhone as a 
 - Hiding Spotify's switch delay: work out the next playlist/song/position ahead of time, track the current song's position so nothing is fetched at the switch, and send the switch early by a measured lead time (auto-tuned, shown as "Start music early").
 - Apple Music: MusicKit JS plays inside the page (needs a MusicKit developer token from the owner's paid Apple Developer account; don't commit it — entered once in the app's settings).
 - Timing: one steady clock (`performance.now()`), everything derived from time since start (pauses excluded), like Hybrid Log's `TimerSchedule`.
-- Mockups: canvas "Gym Interval Timer" (https://claude.ai/artifact/XZ1d1ggV94qWw4TywsHHRS) — iPad Home, Edit preset, Work, Rest; approved Oct 30. Phone layouts follow Hybrid Log's approved timer screens.
+- Mockups: canvas "Gym Interval Timer" (https://claude.ai/artifact/XZ1d1ggV94qWw4TywsHHRS) — iPad Home, Edit preset, Work, Rest; approved Oct 30. Phone layouts (Phone · home, Phone · work) added Oct 30, pending approval; proposed: presets live on each device, and "Send presets to another device" makes a link that copies them (no server or account).
 - Colors as in Hybrid Log: work = mint filled screen with ▲ WORK, rest = black with a blue frame and ❚❚ REST, get ready = yellow. Every phase has a word and icon, not just a color (the owner is slightly red-green colorblind).
 
 ## Step 1: sound check (`soundcheck/`)
