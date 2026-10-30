@@ -87,7 +87,7 @@ export function createSpotify({ clientId, redirect }) {
       const verifier = b64url(rnd(48));
       const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
       const state = b64url(rnd(12));
-      sessionStorage.setItem('git-pkce', JSON.stringify({ verifier, state }));
+      localStorage.setItem('git-pkce', JSON.stringify({ verifier, state }));
       const q = new URLSearchParams({ response_type: 'code', client_id: clientId, scope: SCOPES, redirect_uri: redirect,
                                       code_challenge_method: 'S256', code_challenge: challenge, state });
       location.assign(`${AUTH}/authorize?${q}`);
@@ -97,8 +97,8 @@ export function createSpotify({ clientId, redirect }) {
     async finishSignIn(search) {
       const q = new URLSearchParams(search);
       if (!q.has('code') && !q.has('error')) return false;
-      let saved = null; try { saved = JSON.parse(sessionStorage.getItem('git-pkce')); } catch (e) {}
-      sessionStorage.removeItem('git-pkce');
+      let saved = null; try { saved = JSON.parse(localStorage.getItem('git-pkce')); } catch (e) {}
+      localStorage.removeItem('git-pkce');
       if (q.has('error')) throw new SpotifyError(q.get('error') === 'access_denied' ? 'Spotify sign-in was cancelled.' : 'Spotify sign-in failed.', 400, q.get('error'));
       if (!saved || saved.state !== q.get('state')) throw new SpotifyError('Spotify sign-in expired. Try again.', 400, 'state');
       await tokenRequest({ grant_type: 'authorization_code', code: q.get('code'), redirect_uri: redirect, code_verifier: saved.verifier });

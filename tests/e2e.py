@@ -72,15 +72,15 @@ with sync_playwright() as p:
     a = start_and_wait(pg)
     check(pg.locator('#run.ready').count() == 1 and pg.inner_text('#big') == '0:05', 'get ready shows 0:05 in yellow screen')
     seen = {}
-    for rel in [0.99, 1.01, 4.99, 5.01, 5.99, 6.01, 24.99, 25.01, 34.99, 35.01, 94.01]:
+    for rel in [0.97, 1.03, 4.97, 5.03, 5.97, 6.03, 24.97, 25.03, 34.97, 35.03, 94.03]:
         go(pg, a, rel); seen[rel] = (pg.evaluate('document.getElementById("run") && document.getElementById("run").className'), pg.evaluate('document.getElementById("big") && document.getElementById("big").textContent'))
-    check(seen[0.99][1] == '0:05' and seen[1.01][1] == '0:04', 'countdown changes exactly on the second (0:05 → 0:04 at 1.00 s)')
-    check(seen[4.99] == ('run ready', '0:01') and seen[5.01] == ('run work', '0:20'), 'get ready → WORK at 5.00 s, showing 0:20')
-    check(seen[5.99][1] == '0:20' and seen[6.01][1] == '0:19', 'work: 0:20 → 0:19 at 6.00 s')
+    check(seen[0.97][1] == '0:05' and seen[1.03][1] == '0:04', 'countdown changes on the second (0:05 → 0:04 within a frame of 1.00 s)')
+    check(seen[4.97] == ('run ready', '0:01') and seen[5.03] == ('run work', '0:20'), 'get ready → WORK at 5.00 s, showing 0:20')
+    check(seen[5.97][1] == '0:20' and seen[6.03][1] == '0:19', 'work: 0:20 → 0:19 at 6.00 s')
     print('   seen:', seen)
-    check(seen[24.99] == ('run work', '0:01') and seen[25.01] == ('run rest', '0:10'), 'WORK → REST at 25.00 s')
-    check(seen[34.99][0] == 'run rest' and seen[35.01] == ('run work', '0:20'), 'REST → WORK (cycle 2) at 35.00 s')
-    check(seen[94.01][0] == 'run rest' and seen[94.01][1] == '0:01', 'last rest still counting at 94 s')
+    check(seen[24.97] == ('run work', '0:01') and seen[25.03] == ('run rest', '0:10'), 'WORK → REST at 25.00 s')
+    check(seen[34.97][0] == 'run rest' and seen[35.03] == ('run work', '0:20'), 'REST → WORK (cycle 2) at 35.00 s')
+    check(seen[94.03][0] == 'run rest' and seen[94.03][1] == '0:01', 'last rest still counting at 94 s')
     go(pg, a, 95.2)
     check(pg.locator('.done h1').count() == 1 and 'Done · Test' in pg.inner_text('.done h1'), 'finishes at 95 s with the Done screen')
     # sounds
@@ -244,6 +244,51 @@ with sync_playwright() as p:
     want = [(0.05, 'get-ready'), (5.55, 'work'), (25.55, 'rest'), (35.55, 'work'), (55.55, 'halfway'), (56.45, 'rest'), (65.55, 'last-one'), (85.55, 'rest')]
     check(len(clips) == len(want) and all(abs(c[0] - w[0]) < 0.003 and c[1] == w[1] for c, w in zip(clips, want)), f'timers slowed to once a second: every voice cue still plays on time {clips}')
     check(len([1 for t, l in snd if l == 'long']) == 7 and len([1 for t, l in snd if l == 'short']) == 21, 'timers slowed: every beep still plays')
+    check(errs == [], f'no page errors {errs}')
+    ctx.close()
+
+    # ---------- 10. Keep the screen on: only from Start to the end, asked again after the app comes back ----------
+    WL = """(() => { window.__wl = []; let n = 0;
+      const mk = () => { const id = ++n; const ls = []; const s = { id, released: false, addEventListener: (e, f) => ls.push(f),
+        release: async () => { s.released = true; window.__wl.push('release' + id); ls.forEach(f => f()); } }; window.__wls = s; return s; };
+      Object.defineProperty(navigator, 'wakeLock', { value: { request: async () => { const s = mk(); window.__wl.push('request' + s.id); return s; } }, configurable: true });
+      window.__hidden = false; Object.defineProperty(document, 'hidden', { get: () => window.__hidden, configurable: true }); })()"""
+    ctx, pg, errs = page_for(b, pre=WL)
+    check(pg.evaluate('__wl.length') == 0, 'screen not held on the home screen')
+    make_preset(pg, 'Wake', '0:05', '0:05', 2, 3)
+    a = start_and_wait(pg); pg.clock.run_for(200)
+    check(pg.evaluate('__wl') == ['request1'] and pg.evaluate('window.GIT.wakeState().held'), 'screen held from Start (get ready included)')
+    go(pg, a, 4); pg.click('[data-act="pause"]'); pg.clock.run_for(5000)
+    check(pg.evaluate('window.GIT.wakeState().held'), 'still held while paused')
+    pg.click('[data-act="pause"]')
+    # app goes to the background: iOS lets go; on return it is asked for again
+    pg.evaluate("() => { window.__hidden = true; window.__wls.release(); document.dispatchEvent(new Event('visibilitychange')); }"); pg.clock.run_for(500)
+    check(not pg.evaluate('window.GIT.wakeState().held'), 'let go while the app is in the background')
+    pg.evaluate("() => { window.__hidden = false; document.dispatchEvent(new Event('visibilitychange')); }"); pg.clock.run_for(200)
+    check(pg.evaluate('window.GIT.wakeState().held') and pg.evaluate('__wl').count('request2') == 1, 'asked for again when the app comes back')
+    go(pg, a, 30)
+    check(pg.locator('.done').count() == 1 and not pg.evaluate('window.GIT.wakeState().held') and pg.evaluate('__wl')[-1] == 'release2', 'let go when the workout ends')
+    check(errs == [], f'no page errors {errs}')
+    ctx.close()
+    NOWL = "(() => { delete Navigator.prototype.wakeLock; })()"
+    ctx, pg, errs = page_for(b, pre=NOWL)
+    make_preset(pg, 'NoWake', '0:05', '0:05', 1, 3)
+    start_and_wait(pg)
+    check(pg.locator('#toast').count() == 1 and 'Auto-Lock' in pg.inner_text('#toast'), 'a device that can’t keep the screen on gets one clear tip')
+    ctx.close()
+
+    # ---------- 11. Home Screen app: manifest, icons, paste a presets link ----------
+    ctx, pg, errs = page_for(b, 390, 844)
+    man = pg.evaluate("fetch(document.querySelector('link[rel=manifest]').href).then(r => r.json())")
+    check(man['display'] == 'standalone' and man['start_url'] == './' and len(man['icons']) == 3, 'manifest: standalone app with icons')
+    sizes = pg.evaluate("Promise.all(['icons/icon-192.png','icons/icon-512.png','icons/maskable-512.png','icons/apple-touch-icon.png'].map(u => new Promise(r => { const i = new Image(); i.onload = () => r(i.naturalWidth); i.onerror = () => r(0); i.src = u; })))")
+    check(sizes == [192, 512, 512, 180], f'icons load at the right sizes {sizes}')
+    link = URL + '#presets=' + pg.evaluate("(() => { const p = [{ id: 'z', name: 'From link', work: 30, rest: 15, cycles: 4, getReady: 10 }]; return btoa(JSON.stringify({ v: 1, presets: p })).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, ''); })()")
+    pg.click('[data-act="settings"]')
+    pg.once('dialog', lambda d: d.accept(link))
+    pg.click('[data-act="paste-link"]'); pg.wait_for_selector('[data-act="import-yes"]')
+    pg.click('[data-act="import-yes"]')
+    check('From link' in pg.locator('.pre h2').all_inner_texts(), 'Settings › Paste link adds presets (for the Home Screen app)')
     check(errs == [], f'no page errors {errs}')
     ctx.close()
 

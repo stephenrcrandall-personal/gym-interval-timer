@@ -46,7 +46,7 @@ music.onChange = () => { if (S.view === 'run') drawRun(true); };
 
 const savePresets = () => store.savePresets(S.presets);
 let toastT = null;
-function toast(msg) { S.toast = msg; drawToast(); clearTimeout(toastT); toastT = setTimeout(() => { S.toast = ''; drawToast(); }, 2600); }
+function toast(msg) { S.toast = msg; drawToast(); clearTimeout(toastT); toastT = setTimeout(() => { S.toast = ''; drawToast(); }, Math.max(2600, msg.length * 55)); }
 function drawToast() {
   let el = $('#toast');
   if (!S.toast) { if (el) el.remove(); return; }
@@ -175,7 +175,7 @@ function vSheet() {
     if (!sh.loading && !sh.error && !list.length) body += `<p class="muted">${q ? 'No playlists match.' : 'No playlists in your Spotify library yet.'}</p>`;
   } else if (sh.kind === 'share') {
     title = 'Send presets';
-    body = `<p class="muted" style="color:var(--soft)">Open this link on the other phone or iPad. It adds these ${S.presets.length} preset${S.presets.length > 1 ? 's' : ''} there (music choices included). Playlist places stay on each device.</p>
+    body = `<p class="muted" style="color:var(--soft)">Open this link on the other phone or iPad (in the Home Screen app: Settings › Paste link). It adds these ${S.presets.length} preset${S.presets.length > 1 ? 's' : ''} there (music choices included). Playlist places stay on each device.</p>
       <input class="link" id="share-link" readonly value="${esc(sh.link)}" aria-label="Share link">
       <div class="addrow">${navigator.share ? '<button class="btn primary" data-act="share-send">Send…</button>' : ''}<button class="btn" data-act="share-copy">Copy link</button></div>`;
   } else if (sh.kind === 'import') {
@@ -190,6 +190,7 @@ function vSheet() {
       <div class="rowi"><div class="t"><b>Tune automatically</b><em>Measures the delay on the first switches of each workout</em></div><button class="tg" role="switch" aria-checked="${settings.leadAuto}" data-act="lead-auto" aria-label="Tune automatically"><b>${settings.leadAuto ? 'On' : 'Off'}</b><i></i></button></div>
       <div class="rowi"><div class="t"><b>Spotify</b><em>${spotify.connected ? esc(spotify.name || 'Connected') + (settings.deviceName ? ' · plays on ' + esc(settings.deviceName) : '') : 'Not connected'}</em></div>${spotify.connected ? '<button class="btn" data-act="sp-out">Disconnect</button>' : '<button class="btn primary" data-act="sp-in">Connect</button>'}</div>
       <div class="rowi"><div class="t"><b>Playlist places</b><em>Every playlist picks up where it left off</em></div><button class="btn" data-act="reset-places">Start from the top</button></div>
+      <div class="rowi"><div class="t"><b>Add presets from a link</b><em>For the Home Screen app: paste a “Send presets” link</em></div><button class="btn" data-act="paste-link">Paste link</button></div>
       <div class="rowi"><div class="t"><b>Sound check</b><em>Checks beeps and voice over Spotify</em></div><a class="btn" href="soundcheck/">Open</a></div>
     </div>`;
   }
@@ -251,9 +252,26 @@ function wireHold() {
   b.addEventListener('contextmenu', e => e.preventDefault());
 }
 
-let wake = null;
-async function keepAwake() { try { if ('wakeLock' in navigator && !wake) { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); } } catch (e) {} }
-function letSleep() { try { wake && wake.release(); } catch (e) {} wake = null; }
+// Keep the screen on from Start until the workout ends (get ready, paused and the last rest included).
+// iOS lets go of it whenever the app goes to the background, so it is asked for again on return.
+// If the device won't do it, say so once, so the screen doesn't go dark mid-workout by surprise.
+let wake = null, asking = null, wanted = false, warned = false;
+async function keepAwake() {
+  wanted = true;
+  if (wake || asking || document.hidden) return;
+  if (!('wakeLock' in navigator)) return warnSleep();
+  asking = navigator.wakeLock.request('screen').then(w => {
+    wake = w;
+    w.addEventListener('release', () => { wake = null; });
+    if (!wanted) letSleep();
+  }).catch(() => warnSleep()).finally(() => { asking = null; });
+  await asking;
+}
+function letSleep() { wanted = false; try { wake && wake.release(); } catch (e) {} wake = null; }
+function warnSleep() {
+  if (warned) return; warned = true;
+  toast('This device won’t keep the screen on by itself. Set Auto-Lock to Never (Settings › Display & Brightness) while you train.');
+}
 
 async function startRun(preset, skipMusic) {
   await cues.start();                       // first, while we're still inside the tap
@@ -365,6 +383,15 @@ app.addEventListener('click', async e => {
       S.presets = store.mergePresets(S.presets, S.sheet.presets); savePresets(); S.sheet = null; render();
       toast(`Added ${n} preset${n > 1 ? 's' : ''}`); break;
     }
+    case 'paste-link': {
+      let text = '';
+      try { text = await navigator.clipboard.readText(); } catch (err) {}
+      if (!/#presets=/.test(text)) text = prompt('Paste the presets link:') || '';
+      const got = store.presetsFromHash(text.slice(text.indexOf('#')));
+      if (got && got.length) S.sheet = { kind: 'import', presets: got };
+      else if (text) toast('That isn’t a presets link.');
+      render(); break;
+    }
     case 'retry': startRun(S.preset); break;
     case 'no-music': startRun(S.preset, true); break;
     case 'home': if (S.run) S.run.stop(); S.view = 'home'; S.run = null; letSleep(); render(); break;
@@ -391,7 +418,8 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { if (S.view === 'run' && S.run) S.run.poke(); return; }
-  if (S.view === 'run' && S.run) { cues.resume(); S.run.catchUp(); keepAwake(); drawRun(true); }
+  if (wanted) keepAwake();
+  if (S.view === 'run' && S.run) { cues.resume(); S.run.catchUp(); drawRun(true); }
 });
 
 // ---------- start-up ----------
@@ -408,4 +436,7 @@ document.addEventListener('visibilitychange', () => {
   try { const r = await fetch('voice/work.wav', { method: 'HEAD' }); S.voiceReady = r.ok; } catch (e) {}
 })();
 
-window.GIT = { S, music, spotify, cues, settings };   // for tests
+// Offline copy for the Home Screen app.
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+
+window.GIT = { S, music, spotify, cues, settings, wakeState: () => ({ wanted, held: !!wake }) };   // for tests

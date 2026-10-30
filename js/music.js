@@ -47,11 +47,17 @@ export function createMusic(spotify, settings, saveSettings) {
     try { readPoll(await spotify.player()); } catch (e) { /* a missed poll is fine */ }
   }
 
-  // Where the playing song is right now, from the last poll plus the time since.
+  // Where the playing song is right now. A poll only counts if it was taken after the last switch
+  // had started playing; otherwise (short intervals, or a poll still on its way) it's worked out from
+  // what was sent: that song, from that spot, since it started.
+  let sent = null;             // {uri, pos, ms, at}: the last play request; at = when it should be heard (null while paused)
   function estimate() {
-    if (!last || !last.uri) return null;
-    const progress = last.progress + (last.playing ? performance.now() - last.at : 0);
-    return { uri: last.uri, progress, ms: last.ms };
+    const now = performance.now();
+    if (last && last.uri && (!sent || (sent.at !== null && last.at >= sent.at + 300))) {
+      return { uri: last.uri, progress: last.progress + (last.playing ? now - last.at : 0), ms: last.ms };
+    }
+    if (sent && sent.uri) return { uri: sent.uri, progress: sent.pos + (sent.at === null ? 0 : Math.max(0, now - sent.at)), ms: sent.ms };
+    return null;
   }
 
   // Keeps a playlist's saved place when songs are added or removed.
@@ -186,6 +192,7 @@ export function createMusic(spotify, settings, saveSettings) {
         }
         const p = plan(slot, true);
         const sentAt = performance.now();
+        sent = { uri: p.uri, pos: p.pos || 0, ms: p.song ? p.song.ms : null, at: sentAt + settings.lead * 1000 };
         await send(p.req);
         active = slot;
         api.problem = null; changed();
@@ -193,12 +200,26 @@ export function createMusic(spotify, settings, saveSettings) {
       });
     },
 
-    pause() { return serial(async () => { capture(); if (active) await spotify.pause(deviceId); }); },
-    resume() { return serial(async () => { if (active) await spotify.resume(deviceId); setTimeout(poll, 800); }); },
+    pause() {
+      return serial(async () => {
+        const e = estimate();
+        capture();
+        if (e) sent = { uri: e.uri, pos: e.progress, ms: e.ms, at: null };   // held where it stopped
+        if (active) await spotify.pause(deviceId);
+      });
+    },
+    resume() {
+      return serial(async () => {
+        if (sent && sent.at === null) sent.at = performance.now() + settings.lead * 1000;
+        if (active) await spotify.resume(deviceId);
+        setTimeout(poll, 800);
+      });
+    },
     skipSong() {
       return serial(async () => {
         if (!active) return;
         await spotify.next(deviceId);
+        sent = null;            // a different song now: go by the next poll
         setTimeout(poll, 800);
       });
     },
