@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>Sound check · Gym Interval Timer</title>
+<style>
+:root{--bg:#000;--surface:#0C0E0C;--sunk:#141714;--line:#232823;--line2:#3a413b;--fg:#F4F7F4;--soft:#C9D0CA;--muted:#8C958E;--mint:#2EE6A8;--ink:#001A12;--blue:#5B8CFF;--red:#FF6B5E;--yellow:#FFD23F;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.45 -apple-system,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+.wrap{max-width:760px;margin:0 auto;padding:calc(16px + env(safe-area-inset-top)) 16px calc(32px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:16px}
+h1{margin:4px 0 0;font-size:30px;line-height:1.1}
+h1 small{display:block;font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.lab{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;color:var(--soft)}
+p{margin:0}
+.muted{color:var(--muted);font-size:15px}
+.seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{flex:1;min-height:48px;border:0;background:var(--surface);font-weight:600;font-size:15px}
+.seg button.on{background:var(--fg);color:#000}
+.tests{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.big{min-height:64px;border-radius:14px;border:0;background:var(--mint);color:var(--ink);font-weight:700;font-size:17px}
+.big:disabled{opacity:.5}
+.ask{display:none;flex-direction:column;gap:10px;border:2px solid var(--yellow);border-radius:14px;padding:14px}
+.ask.show{display:flex}
+.ask b{font-size:17px}
+.answers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.answers button{min-height:52px;border-radius:12px;border:1px solid var(--line2);background:var(--sunk);font-weight:600;font-size:15px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:10px 6px;border-top:1px solid var(--line)}
+th{color:var(--muted);font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase;border-top:0}
+td.r{font-weight:600}
+.good{color:var(--mint)}.meh{color:var(--yellow)}.bad{color:var(--red)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{min-height:48px;padding:0 16px;border-radius:12px;border:1px solid var(--line2);background:var(--sunk);font-weight:600}
+pre{margin:0;white-space:pre-wrap;font:13px/1.5 ui-monospace,Menlo,monospace;color:var(--soft);background:var(--sunk);border-radius:10px;padding:12px}
+@media (max-width:480px){.tests{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<h1><small>Gym Interval Timer</small>Sound check</h1>
+
+<section class="card">
+<p class="lab">Before you start</p>
+<ol>
+<li>Connect the iPad (or phone) to the gym speaker.</li>
+<li>Turn off Silent mode (Control Center) and turn the volume up.</li>
+<li>Start a playlist in the <b>Spotify</b> app, then come back here.</li>
+<li>Run each test below and say what the music did.</li>
+</ol>
+</section>
+
+<section class="card">
+<p class="lab">1 · How this page asks iOS to play sound</p>
+<div class="seg" id="types" role="radiogroup" aria-label="Sound mode">
+<button data-t="auto" class="on" role="radio" aria-checked="true">Standard</button>
+<button data-t="ambient" role="radio" aria-checked="false">Mix</button>
+<button data-t="transient" role="radio" aria-checked="false">Mix + dip</button>
+</div>
+<p class="muted" id="typenote"></p>
+</section>
+
+<section class="card">
+<p class="lab">2 · Play a test</p>
+<div class="tests">
+<button class="big" data-test="beeps">3-2-1 beeps</button>
+<button class="big" data-test="voice">Voice: “Work”</button>
+<button class="big" data-test="both">Beeps + voice</button>
+</div>
+<div class="ask" id="ask" aria-live="polite">
+<b id="askq">What did the Spotify music do?</b>
+<div class="answers">
+<button data-a="kept">Kept playing, cue on top</button>
+<button data-a="dipped">Got quieter during the cue</button>
+<button data-a="paused">Paused or stopped</button>
+<button data-a="silent">Didn’t hear the cue</button>
+</div>
+</div>
+</section>
+
+<section class="card">
+<p class="lab">Results</p>
+<table><thead><tr><th>Mode</th><th>Test</th><th>Music</th></tr></thead><tbody id="results"><tr><td colspan="3" class="muted">No tests yet.</td></tr></tbody></table>
+<div class="row"><button class="btn" id="copy">Copy results</button><button class="btn" id="clear">Clear</button></div>
+<p class="muted">Paste the copied results to Claude (or send a screenshot).</p>
+</section>
+
+<section class="card">
+<p class="lab">This device</p>
+<pre id="dev"></pre>
+</section>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const NOTES = {
+    auto: 'Standard: what Safari does if the page asks for nothing special.',
+    ambient: 'Mix: asks iOS to play the cues alongside other apps’ audio.',
+    transient: 'Mix + dip: asks iOS to play the cues on top and lower other audio while they play.'
+  };
+  const LABEL = { auto: 'Standard', ambient: 'Mix', transient: 'Mix + dip' };
+  const TEST = { beeps: '3-2-1 beeps', voice: 'Voice', both: 'Beeps + voice' };
+  const ANS = { kept: ['Kept playing', 'good'], dipped: ['Got quieter', 'good'], paused: ['Paused', 'bad'], silent: ['No cue heard', 'bad'] };
+  const hasSession = !!(navigator.audioSession && 'type' in navigator.audioSession);
+  let type = 'auto', last = null, results = [], wake = null;
+
+  try { results = JSON.parse(localStorage.getItem('soundcheck') || '[]'); } catch (e) {}
+
+  function setType(t) {
+    type = t;
+    document.querySelectorAll('#types button').forEach(b => { const on = b.dataset.t === t; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+    $('#typenote').textContent = NOTES[t] + (hasSession || t === 'auto' ? '' : ' (This iOS version doesn’t offer this setting, so it behaves like Standard.)');
+  }
+
+  function applyType() {
+    if (hasSession) { try { navigator.audioSession.type = type; } catch (e) {} }
+  }
+
+  // A fresh audio context per test, made after the mode is set, so each mode is tested cleanly.
+  async function beeps(ctx) {
+    const t0 = ctx.currentTime + 0.1;
+    const tone = (at, hz, len) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = hz; o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(0.8, at + 0.01);
+      g.gain.setValueAtTime(0.8, at + len - 0.02); g.gain.linearRampToValueAtTime(0, at + len);
+      o.start(at); o.stop(at + len);
+    };
+    tone(t0, 880, 0.16); tone(t0 + 1, 880, 0.16); tone(t0 + 2, 880, 0.16); tone(t0 + 3, 1320, 0.5);
+    await new Promise(r => setTimeout(r, 3800));
+  }
+
+  function voice() {
+    return new Promise(res => {
+      if (!('speechSynthesis' in window)) return res();
+      const u = new SpeechSynthesisUtterance('Work');
+      u.rate = 1.05; u.onend = res; u.onerror = res;
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+      setTimeout(res, 3000);
+    });
+  }
+
+  async function run(test) {
+    document.querySelectorAll('[data-test]').forEach(b => b.disabled = true);
+    $('#ask').classList.remove('show');
+    applyType();
+    let ctx = null;
+    try {
+      if (test !== 'voice') {
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+        await ctx.resume();
+        await beeps(ctx);
+      }
+      if (test !== 'beeps') await voice();
+    } finally {
+      if (ctx) { try { await ctx.close(); } catch (e) {} }
+      document.querySelectorAll('[data-test]').forEach(b => b.disabled = false);
+    }
+    last = { type, test };
+    $('#askq').textContent = `${LABEL[type]} · ${TEST[test]}: what did the Spotify music do?`;
+    $('#ask').classList.add('show');
+    $('#ask').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function answer(a) {
+    if (!last) return;
+    results = results.filter(r => !(r.type === last.type && r.test === last.test));
+    results.push({ ...last, a });
+    try { localStorage.setItem('soundcheck', JSON.stringify(results)); } catch (e) {}
+    last = null;
+    $('#ask').classList.remove('show');
+    draw();
+  }
+
+  function draw() {
+    const tb = $('#results');
+    if (!results.length) { tb.innerHTML = '<tr><td colspan="3" class="muted">No tests yet.</td></tr>'; return; }
+    tb.innerHTML = results.map(r => `<tr><td>${LABEL[r.type]}</td><td>${TEST[r.test]}</td><td class="r ${ANS[r.a][1]}">${ANS[r.a][1] === 'good' ? '✓ ' : '✕ '}${ANS[r.a][0]}</td></tr>`).join('');
+  }
+
+  function deviceText() {
+    return [
+      'Browser: ' + navigator.userAgent,
+      'Home Screen app: ' + (navigator.standalone ? 'yes' : 'no'),
+      'Sound modes offered: ' + (hasSession ? 'yes' : 'no'),
+      'Voice available: ' + ('speechSynthesis' in window ? 'yes' : 'no'),
+      'Keep screen on: ' + (wake ? 'yes' : ('wakeLock' in navigator ? 'available, not yet on' : 'not offered'))
+    ].join('\n');
+  }
+  function drawDev() { $('#dev').textContent = deviceText(); }
+
+  async function keepAwake() {
+    if (!('wakeLock' in navigator) || wake) return;
+    try { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; drawDev(); }); } catch (e) {}
+    drawDev();
+  }
+
+  document.addEventListener('click', e => {
+    const t = e.target.closest('[data-t]'); if (t) return setType(t.dataset.t);
+    const b = e.target.closest('[data-test]'); if (b) { keepAwake(); return run(b.dataset.test); }
+    const a = e.target.closest('[data-a]'); if (a) return answer(a.dataset.a);
+  });
+  $('#copy').addEventListener('click', async () => {
+    const txt = 'Sound check results\n' + results.map(r => `${LABEL[r.type]} · ${TEST[r.test]}: ${ANS[r.a][0]}`).join('\n') + '\n\n' + deviceText();
+    try { await navigator.clipboard.writeText(txt); $('#copy').textContent = 'Copied'; }
+    catch (e) { prompt('Copy these results:', txt); }
+    setTimeout(() => { $('#copy').textContent = 'Copy results'; }, 1500);
+  });
+  $('#clear').addEventListener('click', () => { results = []; try { localStorage.removeItem('soundcheck'); } catch (e) {} draw(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && wake === null && results.length) keepAwake(); });
+
+  setType('auto'); draw(); drawDev();
+})();
+</script>
+</body>
+</html>
