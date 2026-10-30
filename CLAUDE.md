@@ -18,7 +18,7 @@ A web interval timer for a friend's home gym, run on an iPad (or an iPhone as a 
 - Colors as in Hybrid Log: work = mint filled screen with ▲ WORK, rest = black with a blue frame and ❚❚ REST, get ready = yellow. Every phase has a word and icon, not just a color (the owner is slightly red-green colorblind).
 
 ## Sound check (`soundcheck/`) — done Oct 30 on the owner's iPhone
-Beeps through Web Audio play over Spotify without stopping it, in every audio-session mode (Standard, Mix, Mix + dip). Safari's speaking voice (speechSynthesis) dips Spotify and then stops it, in every mode. So the voice cues are recorded clips in `voice/` (`get-ready.wav`, `work.wav`, `rest.wav`, `halfway.wav`, `last-one.wav`), played through Web Audio like the beeps; a missing clip is just quiet. The owner is making them on his Mac with `say`. Re-check on the friend's iPad and speaker.
+Beeps through Web Audio play over Spotify without stopping it, in every audio-session mode (Standard, Mix, Mix + dip). Safari's speaking voice (speechSynthesis) dips Spotify and then stops it, in every mode. So the voice cues are recorded clips in `voice/` (`get-ready.wav`, `work.wav`, `rest.wav`, `halfway.wav`, `last-one.wav`), played through Web Audio like the beeps; a missing clip is just quiet. Added Oct 30: made by the owner on his Mac with `say` in Siri Voice 6 (set as the System voice), trimmed to start within 20 ms and evened out to the same volume. To redo them, regenerate with `say -o <name>.wav --data-format=LEI16@22050 "<phrase>"` and trim the same way. Re-check on the friend's iPad and speaker.
 
 ## How the app is built (Oct 30)
 - `index.html` + `app.css` + `config.js` (Spotify Client ID, redirect) + ES modules in `js/`, no build step.
@@ -32,7 +32,7 @@ Beeps through Web Audio play over Spotify without stopping it, in every audio-se
 - Tests: `python3 tests/e2e.py` (Playwright with `tests/fake.js`: a fake Spotify answered in the page with a 0.7 s playback delay, a fake audio clock that records every scheduled sound, and a fast-forwarded page clock). Covers timing to the second, beeps and clips at exact times, switch bodies and early sending, lead tuning, Continue/Next/Shuffle, the next workout picking up, pause/resume/skip/hold to end, no device, share links, and layouts at 390×844, 1180×820 and 820×1180.
 
 ## Next
-- Owner tests at his desk (Chrome + Spotify desktop app work the same way) and at the gym; voice clips go in `voice/`.
+- Owner tests at his desk (Chrome + Spotify desktop app work the same way) and at the gym.
 - Apple Music (MusicKit JS; developer token from the owner's account, entered in settings, not committed) after Spotify works.
 
 ## How to work on it
