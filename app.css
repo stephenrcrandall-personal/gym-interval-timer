@@ -177,3 +177,11 @@ button{cursor:pointer;touch-action:manipulation}
 .stats span{font-size:13px;color:var(--muted)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom));background:var(--fg);color:#000;padding:10px 16px;border-radius:10px;font-weight:600;z-index:30;max-width:calc(100% - 32px)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* Home Screen app: iOS draws the clock, battery and (on iPad) the window controls over the top of
+   the app and blurs the edge under them, and iPad doesn't always report that space. Leave room. */
+@media (display-mode: standalone){
+  .app{padding-top:calc(max(env(safe-area-inset-top), 24px) + 24px)}
+  .run{padding-top:calc(max(env(safe-area-inset-top), 24px) + 20px)}
+  .sheet .box{margin-top:calc(max(env(safe-area-inset-top), 24px) + 12px)}
+}
